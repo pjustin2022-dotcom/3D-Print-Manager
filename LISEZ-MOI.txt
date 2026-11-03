@@ -1,0 +1,11 @@
+3D PRINT MANAGER
+
+Application web en français, interface noire et violet néon.
+Fonctions : calcul des coûts matière et machine, prise en compte des purges, supports et pertes, stock filament, catalogue, commandes, devis imprimable en PDF, export/import JSON, lecture des dimensions STL.
+
+Imprimantes et règle : Weedo Tina 2 si X <= 100 mm, Y <= 105 mm et Z <= 100 mm ; sinon Bambu Lab A1 + AMS Lite.
+
+Limites de cette version : les grammes et durées sont saisis manuellement depuis le trancheur. L'import 3MF n'extrait pas encore les métadonnées du trancheur. Les dimensions STL sont estimées en supposant que les unités du fichier sont des mm. Les données sont enregistrées localement dans le navigateur et ne se synchronisent pas entre appareils.
+
+Pour installer sur iPhone : publier le dossier sur un hébergement HTTPS, ouvrir l'adresse dans Safari, toucher Partager puis Sur l'écran d'accueil. Ouvrir index.html localement permet de tester, mais ne crée pas une adresse web publique.
+
