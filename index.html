@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0912">
+  <title>3D Print Manager</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root{--bg:#0b0912;--p:#171221;--l:#352744;--v:#a855f7;--t:#f7f0ff;--m:#b4a8c3;--danger:#fb7185;--warning:#fbbf24}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px system-ui}header{padding:22px;background:#100d19;border-bottom:1px solid var(--l)}h1{margin:0;color:#d8b4fe}nav{display:flex;gap:6px;overflow:auto;padding:10px;background:#100d19;position:sticky;top:0;z-index:2}button{border:0;border-radius:10px;padding:10px 13px;background:#30213f;color:white;cursor:pointer}button:disabled{cursor:not-allowed;opacity:.65}button.active,.primary{background:linear-gradient(100deg,#9333ea,#c026d3)}main{max-width:1100px;margin:auto;padding:20px}.page{display:none}.page.active{display:block}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.card{background:var(--p);border:1px solid var(--l);border-radius:16px;padding:17px;margin-bottom:14px}.muted,label{color:var(--m)}label{display:block;font-size:12px;margin:10px 0 5px}input,select{width:100%;padding:11px;background:#0e0b16;border:1px solid var(--l);color:white;border-radius:9px}.stat{font-size:28px;font-weight:800}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.result{background:#28183a;border:1px solid #643a86;padding:14px;border-radius:12px;margin-top:12px}.small{font-size:12px;color:var(--m)}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;border-bottom:1px solid var(--l)}.scroll{overflow:auto}.low-stock{border-color:#854c25;background:#2c1d16}.stock-status{display:inline-block;padding:3px 7px;border-radius:999px;font-size:12px;background:#213626;color:#bbf7d0}.stock-status.low{background:#4a242c;color:#fecdd3}.alert-list{margin:0;padding-left:20px}.alert-list li{margin:6px 0}.toast{position:fixed;right:16px;bottom:16px;z-index:10;max-width:340px;padding:14px 16px;border:1px solid #8b5cf6;border-radius:12px;background:#251534;color:#fff;box-shadow:0 10px 28px #0008;transform:translateY(120%);opacity:0;transition:.25s}.toast.visible{transform:translateY(0);opacity:1}@media(max-width:600px){main{padding:12px}nav button{white-space:nowrap;font-size:12px;padding:9px}.toast{right:12px;left:12px;max-width:none}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="small">ATELIER NUMÉRIQUE</div>
+    <h1>3D PRINT MANAGER</h1>
+    <div class="small">Gestion · calcul des coûts · commandes</div>
+  </header>
+  <nav id="nav">
+    <button class="active" data-p="dash">Accueil</button>
+    <button data-p="calc">Calculateur</button>
+    <button data-p="fil">Filaments</button>
+    <button data-p="orders">Commandes</button>
+    <button data-p="catalog">Catalogue</button>
+    <button data-p="settings">Réglages</button>
+  </nav>
+  <main>
+    <section id="dash" class="page active">
+      <div class="grid">
+        <div class="card"><div class="small">Ventes enregistrées</div><div class="stat" id="rev">0 €</div></div>
+        <div class="card"><div class="small">Filament restant</div><div class="stat" id="stock">0 g</div></div>
+        <div class="card"><div class="small">Pertes et purges cumulées</div><div class="stat" id="waste">0 g</div></div>
+      </div>
+      <div class="card" id="lowStockCard"><h3>Alertes de stock</h3><div id="lowStock" class="small">Aucune alerte.</div></div>
+      <div class="card"><h3>Dernières commandes</h3><div id="recent" class="small">Pas encore de commande.</div></div>
+      <div class="card small">Données stockées dans le navigateur de cet appareil. Export JSON disponible dans Réglages.</div>
+    </section>
+
+    <section id="calc" class="page">
+      <div class="grid">
+        <div class="card">
+          <h2>Calculateur d'impression</h2>
+          <label>Nom de la pièce</label><input id="name" placeholder="Support téléphone">
+          <div class="row">
+            <div><label>X (mm)</label><input id="x" type="number" value="80"></div>
+            <div><label>Y (mm)</label><input id="y" type="number" value="80"></div>
+            <div><label>Z (mm)</label><input id="z" type="number" value="30"></div>
+            <div><label>Durée (heures)</label><input id="h" type="number" value="3" step=".1"></div>
+          </div>
+          <label>Filament</label><select id="filament"></select>
+          <div class="row">
+            <div><label>Pièce (g)</label><input id="part" type="number" value="100"></div>
+            <div><label>Supports (g)</label><input id="support" type="number" value="10"></div>
+            <div><label>Purges / tour (g)</label><input id="purge" type="number" value="15"></div>
+            <div><label>Autres pertes (g)</label><input id="other" type="number" value="0"></div>
+          </div>
+          <label>Imprimante</label><select id="printer"></select>
+          <p class="small">« Choix automatique » utilise la Weedo Tina 2 quand la pièce tient dans son volume, sinon la Bambu Lab A1. Tu peux choisir une imprimante personnelle ajoutée dans Réglages.</p>
+          <label>Prix de vente (€)</label><input id="sale" type="number" value="0" step=".01">
+          <p><button class="primary" id="compute">Calculer</button> <button id="save">Enregistrer la commande</button></p>
+          <div id="out" class="small">Renseigne les données puis calcule.</div>
+        </div>
+        <div class="card">
+          <h3>Importer un modèle</h3>
+          <input id="model" type="file" accept=".stl,.3mf">
+          <p class="small">Le nom du fichier est repris. Les dimensions STL sont détectées si possible. Pour un 3MF, reporte les dimensions et les grammes depuis Bambu Studio.</p>
+          <h3>Choix automatique</h3>
+          <p class="small">Weedo Tina 2 si X ≤ 100, Y ≤ 105 et Z ≤ 100 mm. Sinon Bambu Lab A1 + AMS Lite. Saisis la durée estimée du trancheur pour calculer le coût machine.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="fil" class="page">
+      <div class="grid">
+        <div class="card">
+          <h2>Ajouter une bobine</h2>
+          <label>Nom / type / couleur</label><input id="fn" placeholder="PLA noir">
+          <div class="row">
+            <div><label>Prix bobine (€)</label><input id="fp" type="number" value="20"></div>
+            <div><label>Poids total (g)</label><input id="ft" type="number" value="1000"></div>
+          </div>
+          <label>Poids restant (g)</label><input id="fr" type="number" value="1000">
+          <p><button class="primary" id="addf">Ajouter</button></p>
+        </div>
+        <div class="card"><h2>Stock</h2><div id="flist"></div></div>
+      </div>
+      <div class="card">
+        <h2>Rappel de réapprovisionnement</h2>
+        <p class="small">Une alerte est créée dès qu'une bobine passe sous 15 % de son poids total. Active les notifications pour recevoir aussi un rappel Windows quand l'application est ouverte.</p>
+        <button class="primary" id="enableNotifications">Activer les notifications</button>
+        <p class="small" id="notificationStatus"></p>
+      </div>
+    </section>
+
+    <section id="orders" class="page">
+      <div class="card"><h2>Commandes</h2><div class="scroll" id="olist">Aucune commande.</div><p class="small">Le bouton PDF ouvre une fiche imprimable. Choisis « Enregistrer au format PDF » dans la fenêtre d'impression.</p></div>
+    </section>
+
+    <section id="catalog" class="page">
+      <div class="grid">
+        <div class="card"><h2>Ajouter un produit</h2><label>Nom</label><input id="pn"><div class="row"><div><label>Coût (€)</label><input id="pc" type="number" value="0"></div><div><label>Prix de vente (€)</label><input id="pp" type="number" value="0"></div></div><p><button class="primary" id="addp">Ajouter</button></p></div>
+        <div class="card"><h2>Catalogue</h2><div id="plist"></div></div>
+      </div>
+    </section>
+
+    <section id="settings" class="page">
+      <div class="grid">
+        <div class="card"><h2>Mes imprimantes</h2><div class="scroll" id="printerList"></div></div>
+        <div class="card"><h2>Ajouter une imprimante</h2><label>Nom</label><input id="printerName" placeholder="Creality Ender 3 V3"><div class="row"><div><label>X maximum (mm)</label><input id="printerX" type="number" value="220"></div><div><label>Y maximum (mm)</label><input id="printerY" type="number" value="220"></div><div><label>Z maximum (mm)</label><input id="printerZ" type="number" value="250"></div><div><label>Coût machine (€/h)</label><input id="printerRate" type="number" value=".10" min="0" step=".01"></div></div><p><button class="primary" id="addPrinter">Ajouter l’imprimante</button></p></div>
+      </div>
+      <div class="card"><h2>Installer l'application</h2><p class="small">Dans Edge ou Chrome, ce projet peut être installé comme une application depuis le menu Applications. Opera GX ne propose pas encore la même installation PWA native sous Windows.</p><button id="installApp" hidden>Installer 3D Print Manager</button></div>
+      <div class="card"><h2>Sauvegarde</h2><button id="export">Exporter JSON</button> <label>Importer sauvegarde JSON</label><input id="import" type="file" accept=".json"></div>
+      <div class="card small">Version initiale. Les poids de purges, supports et pièces sont à saisir depuis le trancheur. Le 3MF n'est pas encore analysé automatiquement. Les données ne sont pas synchronisées entre appareils.</div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // La navigation est volontairement indépendante du reste de l'application.
+    // Ainsi, un problème de stockage ou de notification ne bloque pas les rubriques.
+    document.getElementById('nav').addEventListener('click', event => {
+      const button = event.target.closest('button[data-p]');
+      if (!button) return;
+      document.querySelectorAll('nav button').forEach(item => item.classList.toggle('active', item === button));
+      document.querySelectorAll('.page').forEach(page => page.classList.toggle('active', page.id === button.dataset.p));
+    });
+  </script>
+  <script>
+    const LOW_STOCK_THRESHOLD = 15;
+
+    function remainingPercent(filament) {
+      const total = Number(filament && filament.total);
+      const remaining = Number(filament && filament.remaining);
+      if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(remaining)) return 0;
+      return Math.max(0, Math.min(100, (remaining / total) * 100));
+    }
+
+    function isLowStock(filament, threshold = LOW_STOCK_THRESHOLD) {
+      return remainingPercent(filament) < threshold;
+    }
+
+    function classifyLowStock(filaments, previouslyNotified = [], threshold = LOW_STOCK_THRESHOLD) {
+      const low = filaments.filter(filament => isLowStock(filament, threshold));
+      const knownIds = new Set(previouslyNotified);
+      return {
+        low,
+        newlyAlerted: low.filter(filament => !knownIds.has(filament.id)),
+        alertIds: low.map(filament => filament.id)
+      };
+    }
+
+    const $ = id => document.getElementById(id);
+    const money = n => (+n || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const g = n => (+n || 0) + ' g';
+    let db;
+    let current = null;
+    let deferredInstallPrompt = null;
+    let toastTimer;
+
+    function defaultPrinters() {
+      return [
+        { id: 'a1', name: 'Bambu Lab A1 + AMS Lite', maxX: 256, maxY: 256, maxZ: 256, rate: Number(db.rates && db.rates.a1) || .15, system: true },
+        { id: 'tina', name: 'Weedo Tina 2', maxX: 100, maxY: 105, maxZ: 100, rate: Number(db.rates && db.rates.tina) || .08, system: true }
+      ];
+    }
+
+    function ensurePrinters() {
+      const saved = Array.isArray(db.printers) ? db.printers : [];
+      for (const standard of defaultPrinters()) {
+        const existing = saved.find(printer => printer.id === standard.id);
+        if (!existing) {
+          saved.push(standard);
+          continue;
+        }
+        existing.name = existing.name || standard.name;
+        existing.maxX = Number(existing.maxX) > 0 ? Number(existing.maxX) : standard.maxX;
+        existing.maxY = Number(existing.maxY) > 0 ? Number(existing.maxY) : standard.maxY;
+        existing.maxZ = Number(existing.maxZ) > 0 ? Number(existing.maxZ) : standard.maxZ;
+        existing.rate = Number(existing.rate) >= 0 ? Number(existing.rate) : standard.rate;
+        existing.system = true;
+      }
+      db.printers = saved.filter(printer => printer && printer.id && printer.name && Number(printer.maxX) > 0 && Number(printer.maxY) > 0 && Number(printer.maxZ) > 0 && Number(printer.rate) >= 0);
+    }
+
+    try {
+      db = JSON.parse(localStorage.getItem('dpm') || '{}');
+    } catch {
+      db = {};
+    }
+    db = { filaments: [], orders: [], products: [], rates: { a1: .15, tina: .08 }, lowStockNotified: [], ...db };
+    db.rates = { a1: .15, tina: .08, ...db.rates };
+    db.lowStockNotified = Array.isArray(db.lowStockNotified) ? db.lowStockNotified : [];
+    ensurePrinters();
+
+    function esc(value) {
+      return String(value || '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function lowFilaments() {
+      return db.filaments.filter(filament => isLowStock(filament, LOW_STOCK_THRESHOLD));
+    }
+
+    function collectNewLowStockAlerts() {
+      const status = classifyLowStock(db.filaments, db.lowStockNotified, LOW_STOCK_THRESHOLD);
+      db.lowStockNotified = status.alertIds;
+      return status.newlyAlerted;
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      $('toast').textContent = message;
+      $('toast').classList.add('visible');
+      toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 7000);
+    }
+
+    async function notifyLowStock(filaments) {
+      const summary = filaments.map(f => `${f.name} (${remainingPercent(f).toFixed(0)} %)` ).join(', ');
+      showToast(`Stock faible : ${summary}. Pense à commander du filament.`);
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const options = { body: `${summary}. Passe commande pour éviter une rupture.`, icon: './icon.svg', tag: 'dpm-low-stock', renotify: true };
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification('3D Print Manager · stock faible', options);
+        } else {
+          new Notification('3D Print Manager · stock faible', options);
+        }
+      } catch {
+        // L'alerte dans l'application reste disponible si une notification système échoue.
+      }
+    }
+
+    function saveDB({ notify = true } = {}) {
+      const newAlerts = collectNewLowStockAlerts();
+      localStorage.setItem('dpm', JSON.stringify(db));
+      render();
+      if (notify && newAlerts.length) notifyLowStock(newAlerts);
+    }
+
+    function notificationStatus() {
+      if (!('Notification' in window)) return 'Les notifications ne sont pas prises en charge par ce navigateur.';
+      if (Notification.permission === 'granted') return 'Notifications activées : un rappel sera affiché au passage sous 15 %.';
+      if (Notification.permission === 'denied') return 'Notifications bloquées dans le navigateur. Les alertes restent visibles dans l’application.';
+      return 'Notifications non activées : les alertes restent visibles dans l’application.';
+    }
+
+    function render() {
+      const selectedPrinter = $('printer').value;
+      $('filament').innerHTML = '<option value="">Sélectionner</option>' + db.filaments.map(f => `<option value="${f.id}">${esc(f.name)} · ${money(f.price / f.total)}/g</option>`).join('');
+      $('printer').innerHTML = '<option value="auto">Choix automatique (Tina 2 / A1)</option>' + db.printers.map(printer => `<option value="${printer.id}">${esc(printer.name)} · ${money(printer.rate)}/h</option>`).join('');
+      if ([...$('printer').options].some(option => option.value === selectedPrinter)) $('printer').value = selectedPrinter;
+      $('printerList').innerHTML = `<table><tr><th>Imprimante</th><th>Volume</th><th>€/h</th><th></th></tr>${db.printers.map(printer => `<tr><td>${esc(printer.name)}${printer.system ? '<br><span class="small">Modèle de base</span>' : ''}</td><td>${printer.maxX} × ${printer.maxY} × ${printer.maxZ} mm</td><td><input aria-label="Coût horaire ${esc(printer.name)}" type="number" min="0" step=".01" value="${printer.rate}" onchange="updatePrinterRate('${printer.id}', this.value)"></td><td>${printer.system ? '' : `<button aria-label="Supprimer ${esc(printer.name)}" onclick="deletePrinter('${printer.id}')">×</button>`}</td></tr>`).join('')}</table>`;
+      $('flist').innerHTML = db.filaments.length
+        ? `<div class="scroll"><table><tr><th>Bobine</th><th>Restant</th><th>Niveau</th><th>Prix/g</th><th></th></tr>${db.filaments.map(f => {
+            const percent = remainingPercent(f);
+            const low = isLowStock(f, LOW_STOCK_THRESHOLD);
+            return `<tr><td>${esc(f.name)}</td><td>${g(f.remaining)}</td><td><span class="stock-status${low ? ' low' : ''}">${percent.toFixed(0)} %</span></td><td>${money(f.price / f.total)}</td><td><button aria-label="Supprimer ${esc(f.name)}" onclick="delF('${f.id}')">×</button></td></tr>`;
+          }).join('')}</table></div>`
+        : '<p class="small">Aucune bobine.</p>';
+      $('olist').innerHTML = db.orders.length
+        ? `<table><tr><th>Date</th><th>Pièce</th><th>Machine</th><th>Coût</th><th>Vente</th><th></th></tr>${db.orders.slice().reverse().map(o => `<tr><td>${new Date(o.date).toLocaleDateString('fr-FR')}</td><td>${esc(o.name)}</td><td>${esc(o.printer)}</td><td>${money(o.cost)}</td><td>${money(o.sale)}</td><td><button onclick="pdf('${o.id}')">PDF</button></td></tr>`).join('')}</table>`
+        : 'Aucune commande.';
+      $('plist').innerHTML = db.products.map(p => `<p>${esc(p.name)} · coût ${money(p.cost)} · vente ${money(p.price)} · marge ${money(p.price - p.cost)}</p>`).join('') || '<p class="small">Catalogue vide.</p>';
+      $('rev').textContent = money(db.orders.reduce((sum, order) => sum + order.sale, 0));
+      $('stock').textContent = g(db.filaments.reduce((sum, filament) => sum + filament.remaining, 0));
+      $('waste').textContent = g(db.orders.reduce((sum, order) => sum + order.support + order.purge + order.other, 0));
+      $('recent').innerHTML = db.orders.slice(-5).reverse().map(order => `${esc(order.name)} · ${money(order.cost)}<br>`).join('') || 'Pas encore de commande.';
+      const low = lowFilaments();
+      $('lowStock').innerHTML = low.length
+        ? `<ul class="alert-list">${low.map(f => `<li><strong>${esc(f.name)}</strong> : ${g(f.remaining)} restant (${remainingPercent(f).toFixed(1)} %). À commander.</li>`).join('')}</ul>`
+        : `<span class="small">Aucune bobine sous ${LOW_STOCK_THRESHOLD} %.</span>`;
+      $('lowStockCard').classList.toggle('low-stock', low.length > 0);
+      $('notificationStatus').textContent = notificationStatus();
+      $('enableNotifications').disabled = 'Notification' in window && Notification.permission === 'granted';
+      $('enableNotifications').textContent = 'Notification' in window && Notification.permission === 'granted' ? 'Notifications activées' : 'Activer les notifications';
+      $('installApp').hidden = !deferredInstallPrompt;
+    }
+
+    window.delF = id => {
+      const filament = db.filaments.find(item => item.id === id);
+      if (!filament || !confirm(`Supprimer la bobine « ${filament.name} » ?`)) return;
+      db.filaments = db.filaments.filter(item => item.id !== id);
+      saveDB({ notify: false });
+    };
+
+    $('addf').onclick = () => {
+      const total = +$('ft').value;
+      const remaining = +$('fr').value;
+      const price = +$('fp').value;
+      const name = $('fn').value.trim();
+      if (!name || total <= 0 || price < 0 || remaining < 0) return alert('Vérifie les champs de la bobine.');
+      db.filaments.push({ id: crypto.randomUUID(), name, total, remaining: Math.min(total, remaining), price });
+      $('fn').value = '';
+      saveDB();
+    };
+
+    $('addp').onclick = () => {
+      if (!$('pn').value.trim()) return;
+      db.products.push({ name: $('pn').value.trim(), cost: +$('pc').value, price: +$('pp').value });
+      $('pn').value = '';
+      saveDB({ notify: false });
+    };
+
+    window.updatePrinterRate = (id, value) => {
+      const rate = Number(value);
+      const printer = db.printers.find(item => item.id === id);
+      if (!printer || !Number.isFinite(rate) || rate < 0) return alert('Le coût horaire doit être positif ou nul.');
+      printer.rate = rate;
+      if (id === 'a1') db.rates.a1 = rate;
+      if (id === 'tina') db.rates.tina = rate;
+      saveDB({ notify: false });
+    };
+
+    window.deletePrinter = id => {
+      const printer = db.printers.find(item => item.id === id);
+      if (!printer || printer.system || !confirm(`Supprimer l’imprimante « ${printer.name} » ?`)) return;
+      db.printers = db.printers.filter(item => item.id !== id);
+      saveDB({ notify: false });
+    };
+
+    $('addPrinter').onclick = () => {
+      const name = $('printerName').value.trim();
+      const maxX = Number($('printerX').value);
+      const maxY = Number($('printerY').value);
+      const maxZ = Number($('printerZ').value);
+      const rate = Number($('printerRate').value);
+      if (!name || [maxX, maxY, maxZ].some(value => !Number.isFinite(value) || value <= 0) || !Number.isFinite(rate) || rate < 0) return alert('Vérifie le nom, le volume et le coût horaire de l’imprimante.');
+      db.printers.push({ id: crypto.randomUUID(), name, maxX, maxY, maxZ, rate, system: false });
+      $('printerName').value = '';
+      saveDB({ notify: false });
+      showToast(`${name} a été ajoutée à tes imprimantes.`);
+    };
+
+    function calculate() {
+      const filament = db.filaments.find(item => item.id === $('filament').value);
+      if (!filament) return alert('Ajoute et sélectionne une bobine.');
+      const part = +$('part').value;
+      const support = +$('support').value;
+      const purge = +$('purge').value;
+      const other = +$('other').value;
+      const hours = +$('h').value;
+      const total = part + support + purge + other;
+      const x = +$('x').value;
+      const y = +$('y').value;
+      const z = +$('z').value;
+      if ([part, support, purge, other, hours, x, y, z].some(value => value < 0) || total <= 0) return alert('Vérifie les dimensions, la durée et les poids.');
+      const fits = printer => x <= printer.maxX && y <= printer.maxY && z <= printer.maxZ;
+      const selectedPrinter = $('printer').value;
+      const tina = db.printers.find(printer => printer.id === 'tina');
+      const a1 = db.printers.find(printer => printer.id === 'a1');
+      const printer = selectedPrinter === 'auto' ? (fits(tina) ? tina : a1) : db.printers.find(item => item.id === selectedPrinter);
+      if (!printer) return alert('Sélectionne une imprimante.');
+      if (!fits(printer)) return alert(`La pièce ne tient pas dans le volume de « ${printer.name} ».`);
+      const machine = hours * printer.rate;
+      const material = total * filament.price / filament.total;
+      const cost = material + machine;
+      const sale = +$('sale').value;
+      current = { id: crypto.randomUUID(), date: new Date().toISOString(), name: $('name').value || 'Impression', printer: printer.name, printerId: printer.id, part, support, purge, other, total, material, machine, cost, sale, filamentId: filament.id };
+      const stockWarning = total > filament.remaining ? `<p><strong>Attention :</strong> la bobine ne contient que ${g(filament.remaining)}.</p>` : '';
+      $('out').innerHTML = `<div class="result"><b>${esc(printer.name)}</b><div class="stat">${money(cost)}</div><p>Matière : ${money(material)} · Machine : ${money(machine)}</p><p>Total consommé : ${g(total)}</p><p>Supports : ${g(support)} · Purges : ${g(purge)} · Autres pertes : ${g(other)}</p>${stockWarning}<b>Marge estimée : ${money(sale - cost)}</b></div>`;
+      return current;
+    }
+
+    $('compute').onclick = calculate;
+    $('save').onclick = () => {
+      const order = calculate();
+      if (!order) return;
+      const filament = db.filaments.find(item => item.id === order.filamentId);
+      if (!filament) return;
+      if (order.total > filament.remaining) return alert(`Stock insuffisant : il reste ${g(filament.remaining)} sur « ${filament.name} ».`);
+      if (!confirm(`Confirmer la commande et retirer ${g(order.total)} de « ${filament.name} » ?`)) return;
+      filament.remaining -= order.total;
+      db.orders.push(order);
+      saveDB();
+      alert('Commande enregistrée');
+    };
+
+    $('enableNotifications').onclick = async () => {
+      if (!('Notification' in window)) return alert('Ce navigateur ne prend pas en charge les notifications. Les alertes restent visibles dans l’application.');
+      const permission = await Notification.requestPermission();
+      render();
+      if (permission === 'granted') {
+        const low = lowFilaments();
+        showToast(low.length ? `Notifications activées. ${low.length} bobine(s) à commander.` : 'Notifications activées.');
+      }
+    };
+
+    $('model').onchange = async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      $('name').value = file.name.replace(/\.(stl|3mf)$/i, '');
+      if (!file.name.toLowerCase().endsWith('.stl')) return alert('3MF chargé. Dimensions et poids à reporter depuis le trancheur.');
+      try {
+        const buffer = await file.arrayBuffer();
+        const view = new DataView(buffer);
+        const min = [Infinity, Infinity, Infinity];
+        const max = [-Infinity, -Infinity, -Infinity];
+        const ascii = new TextDecoder().decode(buffer.slice(0, 400)).trimStart().startsWith('solid');
+        if (ascii) {
+          const text = new TextDecoder().decode(buffer);
+          for (const match of text.matchAll(/vertex\s+([-+\deE.]+)\s+([-+\deE.]+)\s+([-+\deE.]+)/g)) for (let index = 0; index < 3; index++) {
+            const coordinate = +match[index + 1];
+            min[index] = Math.min(min[index], coordinate);
+            max[index] = Math.max(max[index], coordinate);
+          }
+        } else {
+          for (let triangle = 0; triangle < view.getUint32(80, true); triangle++) for (let vertex = 0; vertex < 3; vertex++) {
+            const offset = 84 + triangle * 50 + 12 + vertex * 12;
+            for (let axis = 0; axis < 3; axis++) {
+              const coordinate = view.getFloat32(offset + axis * 4, true);
+              min[axis] = Math.min(min[axis], coordinate);
+              max[axis] = Math.max(max[axis], coordinate);
+            }
+          }
+        }
+        if (min.every(Number.isFinite)) ['x', 'y', 'z'].forEach((id, index) => $(id).value = (max[index] - min[index]).toFixed(2));
+        else alert('Dimensions non détectées');
+      } catch {
+        alert('Lecture STL impossible');
+      }
+    };
+
+    window.pdf = id => {
+      const order = db.orders.find(item => item.id === id);
+      const windowPdf = window.open('', '_blank');
+      if (!windowPdf) return alert('Autorise les fenêtres surgissantes');
+      windowPdf.document.write(`<h1>DEVIS · 3D PRINT MANAGER</h1><p>Date : ${new Date(order.date).toLocaleDateString('fr-FR')}</p><h2>${esc(order.name)}</h2><p>Machine : ${esc(order.printer)}</p><p>Pièce : ${g(order.part)} | Supports : ${g(order.support)} | Purges : ${g(order.purge)} | Autres pertes : ${g(order.other)}</p><h2>Prix proposé : ${money(order.sale)}</h2><script>window.onload=()=>window.print()<\/script>`);
+      windowPdf.document.close();
+    };
+
+    $('export').onclick = () => {
+      const anchor = document.createElement('a');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' }));
+      anchor.href = url;
+      anchor.download = '3d-print-manager-backup.json';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    };
+
+    $('import').onchange = async event => {
+      try {
+        const imported = JSON.parse(await event.target.files[0].text());
+        if (!Array.isArray(imported.filaments) || !Array.isArray(imported.orders)) throw new Error('Sauvegarde invalide');
+        db = { filaments: [], orders: [], products: [], rates: { a1: .15, tina: .08 }, lowStockNotified: [], ...imported };
+        db.rates = { a1: .15, tina: .08, ...db.rates };
+        db.lowStockNotified = Array.isArray(db.lowStockNotified) ? db.lowStockNotified : [];
+        ensurePrinters();
+        saveDB();
+        alert('Import réussi');
+      } catch {
+        alert('Sauvegarde invalide');
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      render();
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      render();
+      showToast('3D Print Manager est installé.');
+    });
+    $('installApp').onclick = async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      render();
+    };
+
+    render();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  </script>
+</body>
+</html>
+
